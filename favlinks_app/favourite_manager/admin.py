@@ -17,10 +17,10 @@ class FavouriteTagAdminView(admin.ModelAdmin):
 
 
 class FavouriteUrlAdminView(admin.ModelAdmin):
-    list_display = ["title", "user", "url", "created_at", "updated_at"]
+    list_display = ["title", "user", "url", "category","created_at", "updated_at"]
     search_fields = ["title", "url"]
     list_filter = ["created_at", "updated_at"]
-    filter_horizontal = ["tags", "categories"]
+    filter_horizontal = ["tags"]
 
 
 admin.site.register(FavouriteCategory, FavouriteCategoryAdminView)
