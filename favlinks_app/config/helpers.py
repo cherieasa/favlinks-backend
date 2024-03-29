@@ -1,3 +1,4 @@
+from rest_framework import status
 from rest_framework.test import APITestCase
 
 from favourite_manager.models import FavouriteCategory, FavouriteTag, FavouriteUrl
@@ -11,6 +12,10 @@ class BaseTestCase(APITestCase):
         self.query_params = None
         self.response = None
         self.response_json = None
+
+    def given_logged_in_user(self, user):
+        self.current_user = user
+        self.client.force_login(user)
 
     def given_query_params(self, query_params):
         self.query_params = query_params
@@ -37,3 +42,17 @@ class BaseTestCase(APITestCase):
             fav_url.categories.set(categories)
 
         return fav_url
+
+    def when_user_gets_json(self):
+        self.response = self.client.get(self.url, self.query_params, format="json")
+        self.response_json = self.response.json()
+        return self.response_json
+
+    def assertResponseBadRequest(self):
+        self.assertEqual(self.response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def assertResponseNotAuthorized(self):
+        self.assertEqual(self.response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def assertResponseForbidden(self):
+        self.assertEqual(self.response.status_code, status.HTTP_403_FORBIDDEN)
