@@ -1,7 +1,7 @@
 from config.helpers import BaseTestCase
 from rest_framework.reverse import reverse
 
-from favourite_manager.models import FavouriteCategory
+from favourite_manager.models import FavouriteCategory, FavouriteTag, FavouriteUrl
 
 
 class FavouriteManagerBaseTestCase(BaseTestCase):
@@ -17,12 +17,44 @@ class FavouriteTagTestCase(FavouriteManagerBaseTestCase):
 
     def setUp(self):
         super().setUp()
+        self.user_tag_1 = self.given_a_favourite_tag(user=self.user, name="tag 1")
+        self.user_tag_2 = self.given_a_favourite_tag(user=self.user, name="tag 2")
 
-    def test_list_favourite_tags_given_user_success(self):
-        pass
+    def assertTagInResponse(self, response):
+        for tag in response:
+            self.assertIn("id", tag)
+            self.assertIn("user", tag)
+            self.assertIn("name", tag)
+            self.assertIn("created_at", tag)
+            self.assertIn("updated_at", tag)
 
-    def test_list_favourite_tags_unauthorized_given_not_logged_in(self):
-        pass
+    def assertTagEqualsResponse(self, user, response):
+        for tag in response:
+            tag_obj = FavouriteTag.objects.get(id=tag["id"])
+            self.assertEqual(user.id, tag["user"])
+            self.assertEqual(tag_obj.user.id, tag["user"])
+            self.assertEqual(tag_obj.name, tag["name"])
+            self.assertEqual(
+                tag_obj.created_at.strftime("%Y-%m-%d"),
+                tag["created_at"][0:10],
+            )
+            self.assertEqual(
+                tag_obj.updated_at.strftime("%Y-%m-%d"),
+                tag["updated_at"][0:10],
+            )
+
+    def test_list_favourite_categories_given_user_success(self):
+        self.given_logged_in_user(self.user)
+        self.given_url(reverse("favouritecategory-list"))
+        self.when_user_gets_json()
+        self.assertResponseSuccess()
+        self.assertTagInResponse(self.response_json)
+        self.assertTagEqualsResponse(self.user, self.response_json)
+
+    def test_list_favourite_categories_forbidden_given_not_logged_in(self):
+        self.given_url(reverse("favouritecategory-list"))
+        self.when_user_gets_json()
+        self.assertResponseForbidden()
 
 
 class FavouriteCategoryTestCase(FavouriteManagerBaseTestCase):
@@ -62,24 +94,94 @@ class FavouriteCategoryTestCase(FavouriteManagerBaseTestCase):
         self.given_logged_in_user(self.user)
         self.given_url(reverse("favouritecategory-list"))
         self.when_user_gets_json()
+        self.assertResponseSuccess()
         self.assertCategoryInResponse(self.response_json)
         self.assertCategoryEqualsResponse(self.user, self.response_json)
 
-    def test_list_favourite_categories_unauthorized_given_not_logged_in(self):
+    def test_list_favourite_categories_forbidden_given_not_logged_in(self):
         self.given_url(reverse("favouritecategory-list"))
         self.when_user_gets_json()
         self.assertResponseForbidden()
 
 
 class FavouriteUrlTestCase(FavouriteManagerBaseTestCase):
-
     def setUp(self):
         super().setUp()
+        self.tag = self.given_a_favourite_tag(self.user, name="User Tag 1")
+        self.category = self.given_a_favourite_category(
+            self.user, name="User Category 1"
+        )
+        self.favourite_url_1 = self.given_a_favourite_url(
+            self.user, category=self.category
+        )
+        self.favourite_url_2 = self.given_a_favourite_url(
+            self.user, url="google.com", tags=[self.tag]
+        )
+        self.other_favourite_url = self.given_a_favourite_url(
+            self.other_user,
+            url="google.com",
+            tags=[self.other_tag],
+            category=self.other_category,
+        )
+
+    def assertFavUrlInResponse(self, response):
+        for favurl in response:
+            self.assertIn("id", favurl)
+            self.assertIn("user", favurl)
+            self.assertIn("title", favurl)
+            self.assertIn("tags", favurl)
+            self.assertIn("category", favurl)
+            self.assertIn("created_at", favurl)
+            self.assertIn("updated_at", favurl)
+
+    def assertFavUrlEqualsResponse(self, user, response):
+        for favurl in response:
+            favurl_obj = FavouriteUrl.objects.get(id=favurl["id"])
+            self.assertEqual(user.id, favurl["user"])
+            self.assertEqual(favurl_obj.user.id, favurl["user"])
+            self.assertEqual(favurl_obj.title, favurl["title"])
+            self.assertEqual(
+                favurl_obj.created_at.strftime("%Y-%m-%d"),
+                favurl["created_at"][0:10],
+            )
+            self.assertEqual(
+                favurl_obj.updated_at.strftime("%Y-%m-%d"),
+                favurl["updated_at"][0:10],
+            )
+
+            if favurl["category"]:
+                category_obj = FavouriteCategory.objects.get(
+                    id=favurl["category"]["id"]
+                )
+                self.assertEqual(category_obj.name, favurl["category"]["name"])
+                self.assertEqual(
+                    category_obj.created_at.strftime("%Y-%m-%d"),
+                    favurl["category"]["created_at"][0:10],
+                )
+                self.assertEqual(
+                    category_obj.updated_at.strftime("%Y-%m-%d"),
+                    favurl["category"]["updated_at"][0:10],
+                )
+
+            for tag in favurl["tags"]:
+                tag_obj = FavouriteTag.objects.get(id=tag["id"])
+                self.assertEqual(tag_obj.name, tag["name"])
+                self.assertEqual(
+                    tag_obj.created_at.strftime("%Y-%m-%d"), tag["created_at"][0:10]
+                )
+                self.assertEqual(
+                    tag_obj.updated_at.strftime("%Y-%m-%d"), tag["updated_at"][0:10]
+                )
 
     def test_list_favourite_url_given_user_success(self):
-        pass
-
-    def test_list_favourite_url_unauthorized_given_not_logged_in(self):
+        self.given_logged_in_user(self.user)
         self.given_url(reverse("favouriteurl-list"))
         self.when_user_gets_json()
-        self.assertResponseNotAuthorized()
+        self.assertResponseSuccess()
+        self.assertFavUrlInResponse(self.response_json)
+        self.assertFavUrlEqualsResponse(self.user, self.response_json)
+
+    def test_list_favourite_url_forbidden_given_not_logged_in(self):
+        self.given_url(reverse("favouriteurl-list"))
+        self.when_user_gets_json()
+        self.assertResponseForbidden()

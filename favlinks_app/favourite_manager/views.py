@@ -12,6 +12,7 @@ from favourite_manager.filters import FavouriteUrlFilter
 from favourite_manager.models import FavouriteCategory, FavouriteTag, FavouriteUrl
 from favourite_manager.serializers import (
     FavouriteCategorySerializer,
+    FavouriteTagSerializer,
     FavouriteUrlSerializer,
 )
 
@@ -24,18 +25,22 @@ class FavouriteCategoryViewSet(viewsets.ModelViewSet):
         return FavouriteCategory.objects.filter(user=self.request.user)
 
     def list(self, request, *args, **kwargs):
-        print("IN LIST API")
         queryset = self.get_queryset()
-        print("queryset", queryset)
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class FavouriteTagViewSet(viewsets.ModelViewSet):
     permission_classes = (IsAuthenticated,)
+    serializer_class = FavouriteTagSerializer
 
     def get_queryset(self):
         return FavouriteTag.objects.filter(user=self.request.user)
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class FavouriteUrlPagination(PageNumberPagination):
@@ -68,13 +73,9 @@ class FavouriteUrlViewSet(PageNumberPagination, viewsets.ModelViewSet):
     pagination_class = FavouriteUrlPagination
 
     def get_queryset(self):
-        print("req user", self.request.user)
         return FavouriteUrl.objects.filter(user=self.request.user)
 
     def list(self, request, *args, **kwargs):
-        print("IN LIST API")
         queryset = self.get_queryset()
-        print("queryset", queryset)
         serializer = self.get_serializer(queryset, many=True)
-        print("serializer", serializer)
         return Response(serializer.data, status=status.HTTP_200_OK)
