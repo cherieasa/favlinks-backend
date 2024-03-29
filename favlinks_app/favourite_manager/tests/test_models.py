@@ -1,7 +1,5 @@
 from config.helpers import BaseTestCase
 
-from favourite_manager.models import FavouriteUrl
-
 
 class FavouriteUrlTestCase(BaseTestCase):
     def setUp(self):
