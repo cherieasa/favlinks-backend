@@ -16,6 +16,7 @@ class FavouriteCategory(models.Model):
     class Meta:
         verbose_name = _("Favourite Category")
         verbose_name_plural = _("Favourite Categories")
+        unique_together = ("user", "name")
 
 
 class FavouriteTag(models.Model):
@@ -30,6 +31,7 @@ class FavouriteTag(models.Model):
     class Meta:
         verbose_name = _("Favourite Tag")
         verbose_name_plural = _("Favourite Tags")
+        unique_together = ("user", "name")
 
 
 class FavouriteUrl(models.Model):
