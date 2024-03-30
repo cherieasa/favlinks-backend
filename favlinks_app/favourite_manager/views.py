@@ -24,10 +24,26 @@ class FavouriteCategoryViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return FavouriteCategory.objects.filter(user=self.request.user)
 
-    def list(self, request, *args, **kwargs):
-        queryset = self.get_queryset()
-        serializer = self.get_serializer(queryset, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+    def create(self, request, *args, **kwargs):
+        name = request.data.get("name", None)
+        if name is None:
+            return Response(
+                {"error": "Name field is required"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        existing_category = FavouriteCategory.objects.filter(
+            user=request.user, name=name
+        ).exists()
+        if existing_category:
+            return Response(
+                {"error": "Category with this name already exists"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save(user=request.user)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
 class FavouriteTagViewSet(viewsets.ModelViewSet):

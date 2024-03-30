@@ -5,7 +5,16 @@ from favourite_manager.models import FavouriteUrl, FavouriteCategory, FavouriteT
 class FavouriteCategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = FavouriteCategory
-        fields = "__all__"
+        fields = ["id", "user", "name", "created_at", "updated_at"]
+        read_only_fields = ["id", "user", "created_at", "updated_at"]
+
+    def create(self, validated_data):
+        return FavouriteCategory.objects.create(**validated_data)
+
+    def update(self, instance, validated_data):
+        instance.name = validated_data.get("name", instance.name)
+        instance.save()
+        return instance
 
 
 class FavouriteTagSerializer(serializers.ModelSerializer):

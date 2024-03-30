@@ -90,7 +90,7 @@ class FavouriteCategoryTestCase(FavouriteManagerBaseTestCase):
                 category["updated_at"][0:10],
             )
 
-    def test_list_favourite_categories_given_user_success(self):
+    def test_list_given_user_success(self):
         self.given_logged_in_user(self.user)
         self.given_url(reverse("favouritecategory-list"))
         self.when_user_gets_json()
@@ -98,11 +98,47 @@ class FavouriteCategoryTestCase(FavouriteManagerBaseTestCase):
         self.assertCategoryInResponse(self.response_json)
         self.assertCategoryEqualsResponse(self.user, self.response_json)
 
-    def test_list_favourite_categories_forbidden_given_not_logged_in(self):
+    def test_list_forbidden_given_not_logged_in(self):
         self.given_url(reverse("favouritecategory-list"))
         self.when_user_gets_json()
         self.assertResponseForbidden()
 
+    def test_create_success(self):
+        category_name = "new category"
+        self.given_logged_in_user(self.user)
+        self.given_url(reverse("favouritecategory-list"))
+        self.when_user_posts_and_gets_json(data={"name": category_name})
+        self.assertResponseCreated()
+        self.assertEqual(
+            FavouriteCategory.objects.filter(
+                user=self.user, name=category_name
+            ).count(),
+            1,
+        )
+
+    def test_create_forbidden_given_not_logged_in(self):
+        initial_count = FavouriteCategory.objects.count()
+        category_name = "new category"
+        self.given_url(reverse("favouritecategory-list"))
+        self.when_user_posts_and_gets_json(data={"name": category_name})
+        self.assertResponseForbidden()
+        self.assertEqual(initial_count, FavouriteCategory.objects.count())
+
+    def test_create_bad_request_given_duplicate_name(self):
+        initial_count = FavouriteCategory.objects.count()
+        self.given_logged_in_user(self.user)
+        self.given_url(reverse("favouritecategory-list"))
+        self.when_user_posts_and_gets_json(data={"name": self.user_category_1.name})
+        self.assertResponseBadRequest()
+        self.assertEqual(initial_count, FavouriteCategory.objects.count())
+
+    def test_create_bad_request_given_no_name(self):
+        initial_count = FavouriteCategory.objects.count()
+        self.given_logged_in_user(self.user)
+        self.given_url(reverse("favouritecategory-list"))
+        self.when_user_posts_and_gets_json(data={"name": ""})
+        self.assertResponseBadRequest()
+        self.assertEqual(initial_count, FavouriteCategory.objects.count())
 
 class FavouriteUrlTestCase(FavouriteManagerBaseTestCase):
     def setUp(self):

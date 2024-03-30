@@ -1,3 +1,4 @@
+from django.utils.http import urlencode
 from rest_framework import status
 from rest_framework.test import APITestCase
 
@@ -49,8 +50,25 @@ class BaseTestCase(APITestCase):
         self.response_json = self.response.json()
         return self.response_json
 
+    def when_user_posts(self, data, format="json"):
+        if self.query_params is not None:
+            r = {
+                "QUERY_STRING": urlencode(self.query_params, doseq=True),
+            }
+            self.response = self.client.post(self.url, data, format=format, **r)
+        else:
+            self.response = self.client.post(self.url, data, format=format)
+
+    def when_user_posts_and_gets_json(self, data, format="json"):
+        self.when_user_posts(data, format)
+        self.response_json = self.response.json()
+        return self.response_json
+
     def assertResponseSuccess(self):
         self.assertEqual(self.response.status_code, status.HTTP_200_OK)
+
+    def assertResponseCreated(self):
+        self.assertEqual(self.response.status_code, status.HTTP_201_CREATED)
 
     def assertResponseBadRequest(self):
         self.assertEqual(self.response.status_code, status.HTTP_400_BAD_REQUEST)
