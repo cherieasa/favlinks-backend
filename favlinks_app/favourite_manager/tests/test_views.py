@@ -103,6 +103,45 @@ class FavouriteCategoryTestCase(FavouriteManagerBaseTestCase):
         self.when_user_gets_json()
         self.assertResponseForbidden()
 
+    def test_retrieve_given_user_success(self):
+        self.given_logged_in_user(self.user)
+        self.given_url(
+            reverse("favouritecategory-detail", kwargs={"pk": self.user_category_1.pk})
+        )
+        self.when_user_gets_json()
+        self.assertResponseSuccess()
+        self.assertIn("id", self.response_json)
+        self.assertIn("user", self.response_json)
+        self.assertIn("name", self.response_json)
+        self.assertIn("created_at", self.response_json)
+        self.assertIn("updated_at", self.response_json)
+        self.assertEqual(self.user.id, self.response_json["user"])
+        self.assertEqual(self.user_category_1.user.id, self.response_json["user"])
+        self.assertEqual(self.user_category_1.name, self.response_json["name"])
+        self.assertEqual(
+            self.user_category_1.created_at.strftime("%Y-%m-%d"),
+            self.response_json["created_at"][0:10],
+        )
+        self.assertEqual(
+            self.user_category_1.updated_at.strftime("%Y-%m-%d"),
+            self.response_json["updated_at"][0:10],
+        )
+
+    def test_retrieve_forbidden_given_not_logged_in(self):
+        self.given_url(
+            reverse("favouritecategory-detail", kwargs={"pk": self.user_category_1.pk})
+        )
+        self.when_user_gets_json()
+        self.assertResponseForbidden()
+
+    def test_retrieve_not_found_given_other_user(self):
+        self.given_logged_in_user(self.other_user)
+        self.given_url(
+            reverse("favouritecategory-detail", kwargs={"pk": self.user_category_1.pk})
+        )
+        self.when_user_gets_json()
+        self.assertResponseNotFound()
+
     def test_create_success(self):
         category_name = "new category"
         self.given_logged_in_user(self.user)
@@ -139,6 +178,39 @@ class FavouriteCategoryTestCase(FavouriteManagerBaseTestCase):
         self.when_user_posts_and_gets_json(data={"name": ""})
         self.assertResponseBadRequest()
         self.assertEqual(initial_count, FavouriteCategory.objects.count())
+
+    def test_update_category_name_success(self):
+        updated_name = "updated"
+        self.given_logged_in_user(self.user)
+        self.given_url(
+            reverse("favouritecategory-detail", kwargs={"pk": self.user_category_1.pk})
+        )
+        self.when_user_puts_and_gets_json(data={"name": updated_name})
+        self.assertResponseSuccess()
+        self.user_category_1.refresh_from_db()
+        self.assertEqual(self.user_category_1.name, updated_name)
+
+    def test_update_forbidden_given_not_logged_in(self):
+        updated_name = "updated"
+        self.given_url(
+            reverse("favouritecategory-detail", kwargs={"pk": self.user_category_1.pk})
+        )
+        self.when_user_puts_and_gets_json(data={"name": updated_name})
+        self.assertResponseForbidden()
+        self.user_category_1.refresh_from_db()
+        self.assertNotEqual(self.user_category_1.name, updated_name)
+
+    def test_update_not_found_given_other_user(self):
+        updated_name = "updated"
+        self.given_logged_in_user(self.other_user)
+        self.given_url(
+            reverse("favouritecategory-detail", kwargs={"pk": self.user_category_1.pk})
+        )
+        self.when_user_puts_and_gets_json(data={"name": updated_name})
+        self.assertResponseNotFound()
+        self.user_category_1.refresh_from_db()
+        self.assertNotEqual(self.user_category_1.name, updated_name)
+
 
 class FavouriteUrlTestCase(FavouriteManagerBaseTestCase):
     def setUp(self):

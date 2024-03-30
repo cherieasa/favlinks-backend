@@ -64,6 +64,17 @@ class BaseTestCase(APITestCase):
         self.response_json = self.response.json()
         return self.response_json
 
+    def when_user_puts_and_gets_json(self, data, format="json"):
+        if self.query_params is not None:
+            r = {
+                "QUERY_STRING": urlencode(self.query_params, doseq=True),
+            }
+            self.response = self.client.put(self.url, data, format=format, **r)
+        else:
+            self.response = self.client.put(self.url, data, format=format)
+        self.response_json = self.response.json()
+        return self.response_json
+
     def assertResponseSuccess(self):
         self.assertEqual(self.response.status_code, status.HTTP_200_OK)
 
@@ -78,3 +89,6 @@ class BaseTestCase(APITestCase):
 
     def assertResponseForbidden(self):
         self.assertEqual(self.response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def assertResponseNotFound(self):
+        self.assertEqual(self.response.status_code, status.HTTP_404_NOT_FOUND)
