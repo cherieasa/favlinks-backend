@@ -1,3 +1,4 @@
+from django.shortcuts import get_object_or_404
 from django.utils.translation import gettext_lazy as _
 from django_filters import rest_framework as filters
 from django_filters.rest_framework import DjangoFilterBackend
@@ -8,11 +9,17 @@ from rest_framework.response import Response
 
 
 from favourite_manager.filters import FavouriteUrlFilter
-from favourite_manager.models import FavouriteCategory, FavouriteTag, FavouriteUrl
+from favourite_manager.models import (
+    FavouriteCategory,
+    FavouriteTag,
+    FavouriteUrl,
+    ValidUrl,
+)
 from favourite_manager.serializers import (
     FavouriteCategorySerializer,
     FavouriteTagSerializer,
     FavouriteUrlSerializer,
+    FavouriteUrlCreateSerializer,
 )
 
 
@@ -25,11 +32,6 @@ class FavouriteCategoryViewSet(viewsets.ModelViewSet):
 
     def create(self, request, *args, **kwargs):
         name = request.data.get("name", None)
-        if name is None:
-            return Response(
-                {"error": "Name field is required"}, status=status.HTTP_400_BAD_REQUEST
-            )
-
         existing_category = FavouriteCategory.objects.filter(
             user=request.user, name=name
         ).exists()
@@ -54,11 +56,6 @@ class FavouriteTagViewSet(viewsets.ModelViewSet):
 
     def create(self, request, *args, **kwargs):
         name = request.data.get("name", None)
-        if name is None:
-            return Response(
-                {"error": "Name field is required"}, status=status.HTTP_400_BAD_REQUEST
-            )
-
         existing_tag = FavouriteTag.objects.filter(
             user=request.user, name=name
         ).exists()
@@ -96,22 +93,34 @@ class FavouriteUrlViewSet(viewsets.ModelViewSet):
         return FavouriteUrl.objects.filter(user=self.request.user)
 
     def create(self, request, *args, **kwargs):
-        name = request.data.get("url", None)
-        if name is None:
+        url = request.data.get("url", None)
+        if not url:
             return Response(
-                {"error": "Name field is required"}, status=status.HTTP_400_BAD_REQUEST
+                {"error": "Url is required"},
+                status=status.HTTP_400_BAD_REQUEST,
             )
-
-        existing_tag = FavouriteTag.objects.filter(
-            user=request.user, name=name
-        ).exists()
-        if existing_tag:
+        existing_url = FavouriteUrl.objects.filter(user=request.user, url=url).exists()
+        if existing_url:
             return Response(
-                {"error": "Tag with this name already exists"},
+                {"error": "Favourite URL with this URL already exists"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        serializer = self.get_serializer(data=request.data)
+        valid_url_obj, created = ValidUrl.objects.get_or_create(url=url)
+        if created:
+            valid_url_obj.validate_url_and_get_title()
+            valid_url_obj.refresh_from_db()
+
+        if not valid_url_obj.is_valid:
+            return Response(
+                {"error": "URL is not valid"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        title = request.data.get("title", valid_url_obj.title)
+        serializer = FavouriteUrlCreateSerializer(
+            data=request.data, context={"user": request.user}
+        )
         serializer.is_valid(raise_exception=True)
-        serializer.save(user=request.user)
+        serializer.save(user=request.user, title=title)
         return Response(serializer.data, status=status.HTTP_201_CREATED)

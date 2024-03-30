@@ -2,8 +2,14 @@ from config.helpers import BaseTestCase
 from datetime import timedelta
 from django.utils import timezone
 from rest_framework.reverse import reverse
+from unittest.mock import patch
 
-from favourite_manager.models import FavouriteCategory, FavouriteTag, FavouriteUrl
+from favourite_manager.models import (
+    FavouriteCategory,
+    FavouriteTag,
+    FavouriteUrl,
+    ValidUrl,
+)
 
 
 class FavouriteManagerBaseTestCase(BaseTestCase):
@@ -415,15 +421,31 @@ class FavouriteUrlTestCase(FavouriteManagerBaseTestCase):
             category=self.other_category,
         )
 
+    def get_favourite_url_count(self):
+        return FavouriteUrl.objects.count()
+
     def assertFavUrlInResponse(self, response):
         for favurl in response:
             self.assertIn("id", favurl)
             self.assertIn("user", favurl)
             self.assertIn("title", favurl)
-            self.assertIn("tags", favurl)
-            self.assertIn("category", favurl)
             self.assertIn("created_at", favurl)
             self.assertIn("updated_at", favurl)
+
+            if "category" in favurl and favurl["category"]:
+                self.assertIn("id", favurl["category"])
+                self.assertIn("user", favurl["category"])
+                self.assertIn("name", favurl["category"])
+                self.assertIn("created_at", favurl["category"])
+                self.assertIn("updated_at", favurl["category"])
+
+            if "tags" in favurl and favurl["tags"]:
+                for tag in favurl["tags"]:
+                    self.assertIn("id", tag)
+                    self.assertIn("user", tag)
+                    self.assertIn("name", tag)
+                    self.assertIn("created_at", tag)
+                    self.assertIn("updated_at", tag)
 
     def assertFavUrlEqualsResponse(self, user, response):
         for favurl in response:
@@ -586,51 +608,8 @@ class FavouriteUrlTestCase(FavouriteManagerBaseTestCase):
         )
         self.when_user_gets_json()
         self.assertResponseSuccess()
-        self.assertIn("id", self.response_json)
-        self.assertIn("user", self.response_json)
-        self.assertIn("url", self.response_json)
-        self.assertIn("created_at", self.response_json)
-        self.assertIn("updated_at", self.response_json)
-        self.assertIn("category", self.response_json)
-        self.assertIn("id", self.response_json["category"])
-        self.assertIn("user", self.response_json["category"])
-        self.assertIn("name", self.response_json["category"])
-        self.assertIn("created_at", self.response_json["category"])
-        self.assertIn("updated_at", self.response_json["category"])
-
-        self.assertIn("tags", self.response_json)
-
-        for tag in self.response_json["tags"]:
-            self.assertIn("id", tag)
-            self.assertIn("user", tag)
-            self.assertIn("name", tag)
-            self.assertIn("created_at", tag)
-            self.assertIn("updated_at", tag)
-
-        self.assertEqual(self.favourite_url_1.user.id, self.response_json["user"])
-        self.assertEqual(self.favourite_url_1.title, self.response_json["title"])
-        self.assertEqual(
-            self.favourite_url_1.created_at.strftime("%Y-%m-%d"),
-            self.response_json["created_at"][0:10],
-        )
-        self.assertEqual(
-            self.favourite_url_1.updated_at.strftime("%Y-%m-%d"),
-            self.response_json["updated_at"][0:10],
-        )
-
-        self.assertEqual(
-            self.favourite_url_1.category.id, self.response_json["category"]["id"]
-        )
-        self.assertEqual(
-            self.favourite_url_1.category.name, self.response_json["category"]["name"]
-        )
-        self.assertEqual(
-            self.favourite_url_1.tags.first().id, self.response_json["tags"][0]["id"]
-        )
-        self.assertEqual(
-            self.favourite_url_1.tags.first().name,
-            self.response_json["tags"][0]["name"],
-        )
+        self.assertFavUrlInResponse([self.response_json])
+        self.assertFavUrlEqualsResponse(self.user, [self.response_json])
 
     def test_retrieve_non_existing_id(self):
         self.given_logged_in_user(self.user)
@@ -653,3 +632,160 @@ class FavouriteUrlTestCase(FavouriteManagerBaseTestCase):
         self.when_user_gets_json()
         self.assertResponseNotFound()
 
+    @patch("favourite_manager.models.requests.get")
+    @patch("favourite_manager.models.BeautifulSoup")
+    def test_create_success(self, mock_bs, mock_requests_get):
+        new_fav_url = "https://facebook.com"
+        new_fav_title = "Custom test title"
+        mock_requests_get.return_value.status_code = 200
+        mock_soup = mock_bs.return_value
+        mock_soup.title.string = new_fav_title
+
+        self.given_logged_in_user(self.user)
+        self.given_url(reverse("favouriteurl-list"))
+        self.when_user_posts_and_gets_json(
+            data={"url": new_fav_url, "title": "Use this title"}
+        )
+        self.assertResponseCreated()
+        self.assertEqual(
+            FavouriteUrl.objects.filter(
+                user=self.user, title="Use this title", url=new_fav_url
+            ).count(),
+            1,
+        )
+
+    @patch("favourite_manager.models.requests.get")
+    @patch("favourite_manager.models.BeautifulSoup")
+    def test_create_success_with_default_title(self, mock_bs, mock_requests_get):
+        initial_valid_url_count = ValidUrl.objects.count()
+        new_fav_url = "https://facebook.com"
+        new_fav_title = "Custom test title"
+        mock_requests_get.return_value.status_code = 200
+        mock_soup = mock_bs.return_value
+        mock_soup.title.string = new_fav_title
+
+        self.given_logged_in_user(self.user)
+        self.given_url(reverse("favouriteurl-list"))
+        self.when_user_posts_and_gets_json(data={"url": new_fav_url})
+        self.assertResponseCreated()
+        self.assertEqual(
+            FavouriteUrl.objects.filter(
+                user=self.user, title=new_fav_title, url=new_fav_url
+            ).count(),
+            1,
+        )
+        self.assertEqual(initial_valid_url_count + 1, ValidUrl.objects.count())
+        self.assertTrue(
+            ValidUrl.objects.filter(url=new_fav_url, is_valid=True).exists()
+        )
+
+    def test_create_fail_with_is_valid_false_valid_url_object(self):
+        initial_count = self.get_favourite_url_count()
+        new_fav_url = "https://facebook.com"
+        ValidUrl.objects.create(url=new_fav_url, title="random")
+        self.given_logged_in_user(self.user)
+        self.given_url(reverse("favouriteurl-list"))
+        self.when_user_posts_and_gets_json(data={"url": new_fav_url})
+        self.assertResponseBadRequest()
+        self.assertEqual(initial_count, self.get_favourite_url_count())
+
+    def test_create_success_with_is_valid_true_valid_url_object(self):
+        new_fav_url = "https://facebook.com"
+        ValidUrl.objects.create(url=new_fav_url, title="random", is_valid=True)
+        self.given_logged_in_user(self.user)
+        self.given_url(reverse("favouriteurl-list"))
+        self.when_user_posts_and_gets_json(data={"url": new_fav_url})
+        self.assertResponseCreated()
+        self.assertEqual(
+            FavouriteUrl.objects.filter(
+                user=self.user, title="random", url=new_fav_url
+            ).count(),
+            1,
+        )
+
+    def test_create_with_category_success(self):
+        new_fav_url = "https://facebook.com"
+        ValidUrl.objects.create(url=new_fav_url, title="random", is_valid=True)
+        self.given_logged_in_user(self.user)
+        self.given_url(reverse("favouriteurl-list"))
+        self.when_user_posts_and_gets_json(
+            data={"url": new_fav_url, "category": self.category.id}
+        )
+        self.assertResponseCreated()
+        self.assertEqual(
+            FavouriteUrl.objects.filter(
+                user=self.user, title="random", url=new_fav_url, category=self.category
+            ).count(),
+            1,
+        )
+
+    def test_create_with_tags_success(self):
+        new_fav_url = "https://facebook.com"
+        ValidUrl.objects.create(url=new_fav_url, title="random", is_valid=True)
+        self.new_tag = self.given_a_favourite_tag(user=self.user, name="New Tag")
+        self.given_logged_in_user(self.user)
+        self.given_url(reverse("favouriteurl-list"))
+        self.when_user_posts_and_gets_json(
+            data={
+                "url": new_fav_url,
+                "category": self.category.id,
+                "tags": [self.tag.id, self.new_tag.id],
+            }
+        )
+        self.assertResponseCreated()
+        self.assertEqual(
+            FavouriteUrl.objects.filter(
+                user=self.user,
+                title="random",
+                url=new_fav_url,
+                category=self.category,
+                tags__in=[self.tag, self.new_tag],
+            )
+            .distinct()
+            .count(),
+            1,
+        )
+
+    def test_create_with_other_category_ignores(self):
+        new_fav_url = "https://facebook.com"
+        ValidUrl.objects.create(url=new_fav_url, title="random", is_valid=True)
+        self.given_logged_in_user(self.user)
+        self.given_url(reverse("favouriteurl-list"))
+        self.when_user_posts_and_gets_json(
+            data={
+                "url": new_fav_url,
+                "category": self.other_category.id,
+                "tags": [self.other_tag.id],
+            }
+        )
+        self.assertResponseCreated()
+        self.assertEqual(
+            FavouriteUrl.objects.filter(
+                user=self.user, title="random", url=new_fav_url
+            ).count(),
+            1,
+        )
+
+    def test_create_forbidden_given_not_logged_in(self):
+        initial_count = self.get_favourite_url_count()
+        new_fav_url = "https://facebook.com"
+        self.given_url(reverse("favouriteurl-list"))
+        self.when_user_posts_and_gets_json(data={"url": new_fav_url})
+        self.assertResponseForbidden()
+        self.assertEqual(initial_count, self.get_favourite_url_count())
+
+    def test_create_bad_request_given_duplicate_url(self):
+        initial_count = self.get_favourite_url_count()
+        self.given_logged_in_user(self.user)
+        self.given_url(reverse("favouriteurl-list"))
+        self.when_user_posts_and_gets_json(data={"url": self.favourite_url_1.url})
+        self.assertResponseBadRequest()
+        self.assertEqual(initial_count, self.get_favourite_url_count())
+
+    def test_create_bad_request_given_no_url(self):
+        initial_count = self.get_favourite_url_count()
+        self.given_logged_in_user(self.user)
+        self.given_url(reverse("favouriteurl-list"))
+        self.when_user_posts_and_gets_json(data={})
+        self.assertResponseBadRequest()
+        self.assertEqual(initial_count, self.get_favourite_url_count())
