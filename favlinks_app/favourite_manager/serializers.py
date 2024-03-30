@@ -5,8 +5,21 @@ from favourite_manager.models import FavouriteUrl, FavouriteCategory, FavouriteT
 class FavouriteCategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = FavouriteCategory
-        fields = ["id", "user", "name", "created_at", "updated_at"]
-        read_only_fields = ["id", "user", "created_at", "updated_at"]
+        fields = [
+            "id",
+            "user",
+            "name",
+            "created_at",
+            "updated_at",
+            "associated_urls_count",
+        ]
+        read_only_fields = [
+            "id",
+            "user",
+            "created_at",
+            "updated_at",
+            "associated_urls_count",
+        ]
 
     def create(self, validated_data):
         return FavouriteCategory.objects.create(**validated_data)
@@ -20,8 +33,21 @@ class FavouriteCategorySerializer(serializers.ModelSerializer):
 class FavouriteTagSerializer(serializers.ModelSerializer):
     class Meta:
         model = FavouriteTag
-        fields = ["id", "user", "name", "created_at", "updated_at"]
-        read_only_fields = ["id", "user", "created_at", "updated_at"]
+        fields = [
+            "id",
+            "user",
+            "name",
+            "created_at",
+            "updated_at",
+            "associated_urls_count",
+        ]
+        read_only_fields = [
+            "id",
+            "user",
+            "created_at",
+            "updated_at",
+            "associated_urls_count",
+        ]
 
     def create(self, validated_data):
         return FavouriteTag.objects.create(**validated_data)

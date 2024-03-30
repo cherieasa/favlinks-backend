@@ -35,6 +35,7 @@ class FavouriteTagTestCase(FavouriteManagerBaseTestCase):
             self.assertIn("name", tag)
             self.assertIn("created_at", tag)
             self.assertIn("updated_at", tag)
+            self.assertIn("associated_urls_count", tag)
 
     def assertTagEqualsResponse(self, user, response):
         for tag in response:
@@ -49,6 +50,9 @@ class FavouriteTagTestCase(FavouriteManagerBaseTestCase):
             self.assertEqual(
                 tag_obj.updated_at.strftime("%Y-%m-%d"),
                 tag["updated_at"][0:10],
+            )
+            self.assertEqual(
+                tag_obj.associated_urls_count, tag["associated_urls_count"]
             )
 
     def test_list_favourite_categories_given_user_success(self):
@@ -71,22 +75,8 @@ class FavouriteTagTestCase(FavouriteManagerBaseTestCase):
         )
         self.when_user_gets_json()
         self.assertResponseSuccess()
-        self.assertIn("id", self.response_json)
-        self.assertIn("user", self.response_json)
-        self.assertIn("name", self.response_json)
-        self.assertIn("created_at", self.response_json)
-        self.assertIn("updated_at", self.response_json)
-        self.assertEqual(self.user.id, self.response_json["user"])
-        self.assertEqual(self.user_tag_1.user.id, self.response_json["user"])
-        self.assertEqual(self.user_tag_1.name, self.response_json["name"])
-        self.assertEqual(
-            self.user_tag_1.created_at.strftime("%Y-%m-%d"),
-            self.response_json["created_at"][0:10],
-        )
-        self.assertEqual(
-            self.user_tag_1.updated_at.strftime("%Y-%m-%d"),
-            self.response_json["updated_at"][0:10],
-        )
+        self.assertTagInResponse([self.response_json])
+        self.assertTagEqualsResponse(self.user, [self.response_json])
 
     def test_retrieve_non_existing_id(self):
         self.given_logged_in_user(self.user)
@@ -216,6 +206,7 @@ class FavouriteCategoryTestCase(FavouriteManagerBaseTestCase):
             self.assertIn("name", category)
             self.assertIn("created_at", category)
             self.assertIn("updated_at", category)
+            self.assertIn("associated_urls_count", category)
 
     def assertCategoryEqualsResponse(self, user, response):
         for category in response:
@@ -230,6 +221,9 @@ class FavouriteCategoryTestCase(FavouriteManagerBaseTestCase):
             self.assertEqual(
                 category_obj.updated_at.strftime("%Y-%m-%d"),
                 category["updated_at"][0:10],
+            )
+            self.assertEqual(
+                category_obj.associated_urls_count, category["associated_urls_count"]
             )
 
     def test_list_given_user_success(self):
@@ -252,22 +246,8 @@ class FavouriteCategoryTestCase(FavouriteManagerBaseTestCase):
         )
         self.when_user_gets_json()
         self.assertResponseSuccess()
-        self.assertIn("id", self.response_json)
-        self.assertIn("user", self.response_json)
-        self.assertIn("name", self.response_json)
-        self.assertIn("created_at", self.response_json)
-        self.assertIn("updated_at", self.response_json)
-        self.assertEqual(self.user.id, self.response_json["user"])
-        self.assertEqual(self.user_category_1.user.id, self.response_json["user"])
-        self.assertEqual(self.user_category_1.name, self.response_json["name"])
-        self.assertEqual(
-            self.user_category_1.created_at.strftime("%Y-%m-%d"),
-            self.response_json["created_at"][0:10],
-        )
-        self.assertEqual(
-            self.user_category_1.updated_at.strftime("%Y-%m-%d"),
-            self.response_json["updated_at"][0:10],
-        )
+        self.assertCategoryInResponse([self.response_json])
+        self.assertCategoryEqualsResponse(self.user, [self.response_json])
 
     def test_retrieve_non_existing_id(self):
         self.given_logged_in_user(self.user)

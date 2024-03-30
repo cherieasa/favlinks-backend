@@ -1,3 +1,4 @@
+from unicodedata import category
 from bs4 import BeautifulSoup
 import requests
 
@@ -14,6 +15,10 @@ class FavouriteCategory(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    @property
+    def associated_urls_count(self):
+        return FavouriteUrl.objects.filter(category=self).count()
+
     def __str__(self):
         return self.name
 
@@ -28,6 +33,10 @@ class FavouriteTag(models.Model):
     name = models.CharField(_("Tag Name"), max_length=255)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    @property
+    def associated_urls_count(self):
+        return FavouriteUrl.objects.filter(tags__in=[self]).count()
 
     def __str__(self):
         return self.name
@@ -60,6 +69,7 @@ class ValidUrl(models.Model):
         except requests.RequestException:
             self.is_valid = False
             self.save()
+
 
 class FavouriteUrl(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
@@ -101,7 +111,7 @@ class FavouriteUrl(models.Model):
             valid_url.refresh_from_db()
 
         return valid_url.is_valid
-    
+
     class Meta:
         verbose_name = _("Favourite Url")
         verbose_name_plural = _("Favourite Urls")
