@@ -52,9 +52,143 @@ class FavouriteTagTestCase(FavouriteManagerBaseTestCase):
         self.assertTagEqualsResponse(self.user, self.response_json)
 
     def test_list_favourite_categories_forbidden_given_not_logged_in(self):
-        self.given_url(reverse("favouritecategory-list"))
+        self.given_url(reverse("favouritetag-list"))
         self.when_user_gets_json()
         self.assertResponseForbidden()
+
+    def test_retrieve_given_user_success(self):
+        self.given_logged_in_user(self.user)
+        self.given_url(
+            reverse("favouritetag-detail", kwargs={"pk": self.user_tag_1.pk})
+        )
+        self.when_user_gets_json()
+        self.assertResponseSuccess()
+        self.assertIn("id", self.response_json)
+        self.assertIn("user", self.response_json)
+        self.assertIn("name", self.response_json)
+        self.assertIn("created_at", self.response_json)
+        self.assertIn("updated_at", self.response_json)
+        self.assertEqual(self.user.id, self.response_json["user"])
+        self.assertEqual(self.user_tag_1.user.id, self.response_json["user"])
+        self.assertEqual(self.user_tag_1.name, self.response_json["name"])
+        self.assertEqual(
+            self.user_tag_1.created_at.strftime("%Y-%m-%d"),
+            self.response_json["created_at"][0:10],
+        )
+        self.assertEqual(
+            self.user_tag_1.updated_at.strftime("%Y-%m-%d"),
+            self.response_json["updated_at"][0:10],
+        )
+
+    def test_retrieve_non_existing_id(self):
+        self.given_logged_in_user(self.user)
+        self.given_url(reverse("favouritetag-detail", kwargs={"pk": "123123"}))
+        self.when_user_gets_json()
+        self.assertResponseNotFound()
+
+    def test_retrieve_forbidden_given_not_logged_in(self):
+        self.given_url(
+            reverse("favouritetag-detail", kwargs={"pk": self.user_tag_1.pk})
+        )
+        self.when_user_gets_json()
+        self.assertResponseForbidden()
+
+    def test_retrieve_not_found_given_other_user(self):
+        self.given_logged_in_user(self.other_user)
+        self.given_url(
+            reverse("favouritetag-detail", kwargs={"pk": self.user_tag_1.pk})
+        )
+        self.when_user_gets_json()
+        self.assertResponseNotFound()
+
+    def test_create_success(self):
+        tag_name = "new tag"
+        self.given_logged_in_user(self.user)
+        self.given_url(reverse("favouritetag-list"))
+        self.when_user_posts_and_gets_json(data={"name": tag_name})
+        self.assertResponseCreated()
+        self.assertEqual(
+            FavouriteTag.objects.filter(user=self.user, name=tag_name).count(),
+            1,
+        )
+
+    def test_create_forbidden_given_not_logged_in(self):
+        initial_count = FavouriteTag.objects.count()
+        tag_name = "new tag"
+        self.given_url(reverse("favouritetag-list"))
+        self.when_user_posts_and_gets_json(data={"name": tag_name})
+        self.assertResponseForbidden()
+        self.assertEqual(initial_count, FavouriteTag.objects.count())
+
+    def test_create_bad_request_given_duplicate_name(self):
+        initial_count = FavouriteTag.objects.count()
+        self.given_logged_in_user(self.user)
+        self.given_url(reverse("favouritetag-list"))
+        self.when_user_posts_and_gets_json(data={"name": self.user_tag_1.name})
+        self.assertResponseBadRequest()
+        self.assertEqual(initial_count, FavouriteTag.objects.count())
+
+    def test_create_bad_request_given_no_name(self):
+        initial_count = FavouriteTag.objects.count()
+        self.given_logged_in_user(self.user)
+        self.given_url(reverse("favouritetag-list"))
+        self.when_user_posts_and_gets_json(data={"name": ""})
+        self.assertResponseBadRequest()
+        self.assertEqual(initial_count, FavouriteTag.objects.count())
+
+    def test_update_forbidden_given_not_logged_in(self):
+        updated_name = "updated"
+        self.given_url(
+            reverse("favouritetag-detail", kwargs={"pk": self.user_tag_1.pk})
+        )
+        self.when_user_puts_and_gets_json(data={"name": updated_name})
+        self.assertResponseForbidden()
+        self.user_tag_1.refresh_from_db()
+        self.assertNotEqual(self.user_tag_1.name, updated_name)
+
+    def test_update_not_found_given_other_user(self):
+        updated_name = "updated"
+        self.given_logged_in_user(self.other_user)
+        self.given_url(
+            reverse("favouritetag-detail", kwargs={"pk": self.user_tag_1.pk})
+        )
+        self.when_user_puts_and_gets_json(data={"name": updated_name})
+        self.assertResponseNotFound()
+        self.user_tag_1.refresh_from_db()
+        self.assertNotEqual(self.user_tag_1.name, updated_name)
+
+    def test_delete_success(self):
+        self.given_logged_in_user(self.user)
+        self.given_url(
+            reverse("favouritetag-detail", kwargs={"pk": self.user_tag_1.pk})
+        )
+        self.when_user_deletes()
+        self.assertResponseNoContent()
+        self.assertFalse(FavouriteTag.objects.filter(pk=self.user_tag_1.pk).exists())
+
+    def test_delete_forbidden_given_not_logged_in(self):
+        self.given_url(
+            reverse("favouritetag-detail", kwargs={"pk": self.user_tag_1.pk})
+        )
+        self.when_user_deletes()
+        self.assertResponseForbidden()
+        self.assertTrue(FavouriteTag.objects.filter(pk=self.user_tag_1.pk).exists())
+
+    def test_delete_not_found_given_non_existent(self):
+        self.given_logged_in_user(self.user)
+        self.given_url(reverse("favouritetag-detail", kwargs={"pk": "12312312"}))
+        self.when_user_deletes()
+        self.assertResponseNotFound()
+        self.assertTrue(FavouriteTag.objects.filter(pk=self.user_tag_1.pk).exists())
+
+    def test_delete_not_found_given_other_user(self):
+        self.given_logged_in_user(self.other_user)
+        self.given_url(
+            reverse("favouritetag-detail", kwargs={"pk": self.user_tag_1.pk})
+        )
+        self.when_user_deletes()
+        self.assertResponseNotFound()
+        self.assertTrue(FavouriteTag.objects.filter(pk=self.user_tag_1.pk).exists())
 
 
 class FavouriteCategoryTestCase(FavouriteManagerBaseTestCase):
