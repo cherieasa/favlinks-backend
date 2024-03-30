@@ -1,4 +1,5 @@
-from django.shortcuts import get_object_or_404
+import requests
+from bs4 import BeautifulSoup
 from django.utils.translation import gettext_lazy as _
 from django_filters import rest_framework as filters
 from django_filters.rest_framework import DjangoFilterBackend
@@ -6,7 +7,6 @@ from rest_framework import filters, status, viewsets
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-
 
 from favourite_manager.filters import FavouriteUrlFilter
 from favourite_manager.models import (
@@ -21,6 +21,37 @@ from favourite_manager.serializers import (
     FavouriteUrlSerializer,
     FavouriteUrlCreateSerializer,
 )
+
+
+class ValidUrlViewSet(viewsets.GenericViewSet):
+    def create(self, request):
+        url = request.data.get("url", None)
+        title = None
+        if not url:
+            return Response(
+                {"error": "URL is required"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            response = requests.get(url)
+            if response.status_code == 200:
+                soup = BeautifulSoup(response.text, "html.parser")
+                title = soup.title.string if soup.title else None
+                is_valid = True
+            else:
+                is_valid = False
+
+            ValidUrl.objects.get_or_create(
+                url=url, defaults={"is_valid": is_valid, "title": title}
+            )
+            return Response(
+                {"is_valid": is_valid, "title": title},
+                status=status.HTTP_200_OK,
+            )
+        except ValidUrl.DoesNotExist:
+            return Response(
+                {"error": "URL not found"}, status=status.HTTP_404_NOT_FOUND
+            )
 
 
 class FavouriteCategoryViewSet(viewsets.ModelViewSet):
