@@ -1,3 +1,6 @@
+from bs4 import BeautifulSoup
+import requests
+
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils.translation import gettext_lazy as _
@@ -35,12 +38,35 @@ class FavouriteTag(models.Model):
         unique_together = ("user", "name")
 
 
+class ValidUrl(models.Model):
+    url = models.URLField(unique=True)
+    title = models.CharField(_("Title"), max_length=255)
+    is_valid = models.BooleanField(default=False)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.url
+
+    def validate_url_and_get_title(self) -> None:
+        try:
+            response = requests.get(self.url)
+            if response.status_code == 200:
+                soup = BeautifulSoup(response.text, "html.parser")
+                self.title = soup.title.string if soup.title else ""
+                self.is_valid = True
+            else:
+                self.is_valid = False
+            self.save()
+        except requests.RequestException:
+            self.is_valid = False
+            self.save()
+
 class FavouriteUrl(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     url = models.URLField()
     title = models.CharField(_("Title"), max_length=255)
     category = models.ForeignKey(
-        FavouriteCategory, null=True, on_delete=models.SET_NULL
+        FavouriteCategory, blank=True, null=True, on_delete=models.SET_NULL
     )
     tags = models.ManyToManyField(FavouriteTag, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -67,6 +93,15 @@ class FavouriteUrl(models.Model):
                 raise ValidationError("Category must belong to the same user.")
         super().save(*args, **kwargs)
 
+    @property
+    def is_valid(self):
+        valid_url, created = ValidUrl.objects.get_or_create(url=self.url)
+        if created:
+            valid_url.validate_url_and_get_title()
+            valid_url.refresh_from_db()
+
+        return valid_url.is_valid
+    
     class Meta:
         verbose_name = _("Favourite Url")
         verbose_name_plural = _("Favourite Urls")
