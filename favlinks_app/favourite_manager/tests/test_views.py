@@ -1,4 +1,6 @@
 from config.helpers import BaseTestCase
+from datetime import timedelta
+from django.utils import timezone
 from rest_framework.reverse import reverse
 
 from favourite_manager.models import FavouriteCategory, FavouriteTag, FavouriteUrl
@@ -401,10 +403,10 @@ class FavouriteUrlTestCase(FavouriteManagerBaseTestCase):
             self.user, name="User Category 1"
         )
         self.favourite_url_1 = self.given_a_favourite_url(
-            self.user, category=self.category
+            self.user, category=self.category, tags=[self.tag]
         )
         self.favourite_url_2 = self.given_a_favourite_url(
-            self.user, url="google.com", tags=[self.tag]
+            self.user, title="google", url="google.com", tags=[self.tag]
         )
         self.other_favourite_url = self.given_a_favourite_url(
             self.other_user,
@@ -462,15 +464,192 @@ class FavouriteUrlTestCase(FavouriteManagerBaseTestCase):
                     tag_obj.updated_at.strftime("%Y-%m-%d"), tag["updated_at"][0:10]
                 )
 
-    def test_list_favourite_url_given_user_success(self):
+    def test_list_favourite_url_paginated_given_user_success(self):
         self.given_logged_in_user(self.user)
         self.given_url(reverse("favouriteurl-list"))
         self.when_user_gets_json()
         self.assertResponseSuccess()
-        self.assertFavUrlInResponse(self.response_json)
-        self.assertFavUrlEqualsResponse(self.user, self.response_json)
+        self.assertEqual(
+            self.response_json["count"],
+            FavouriteUrl.objects.filter(user=self.user).count(),
+        )
+        self.assertFavUrlInResponse(self.response_json["results"])
+        self.assertFavUrlEqualsResponse(self.user, self.response_json["results"])
 
     def test_list_favourite_url_forbidden_given_not_logged_in(self):
         self.given_url(reverse("favouriteurl-list"))
         self.when_user_gets_json()
         self.assertResponseForbidden()
+
+    def test_list_search_by_title_success(self):
+        self.given_logged_in_user(self.user)
+        self.given_url(reverse("favouriteurl-list"))
+        self.given_query_params({"title": self.favourite_url_2.title})
+        self.when_user_gets_json()
+        self.assertResponseSuccess()
+        self.assertEqual(self.response_json["count"], 1)
+        self.assertEqual(
+            self.response_json["results"][0]["title"], self.favourite_url_2.title
+        )
+
+    def test_list_search_by_url_success(self):
+        self.given_logged_in_user(self.user)
+        self.given_url(reverse("favouriteurl-list"))
+        self.given_query_params({"url": self.favourite_url_1.url[:-1]})
+        self.when_user_gets_json()
+        self.assertResponseSuccess()
+        self.assertEqual(self.response_json["count"], 1)
+        self.assertEqual(
+            self.response_json["results"][0]["url"], self.favourite_url_1.url
+        )
+
+    def test_list_filter_by_category_success(self):
+        self.given_logged_in_user(self.user)
+        self.given_url(reverse("favouriteurl-list"))
+        self.given_query_params({"category_name": self.favourite_url_1.category.name})
+        self.when_user_gets_json()
+        self.assertResponseSuccess()
+        self.assertEqual(self.response_json["count"], 1)
+        self.assertEqual(
+            self.response_json["results"][0]["category"]["name"],
+            self.favourite_url_1.category.name,
+        )
+
+    def test_list_filter_by_tag_success(self):
+        self.given_logged_in_user(self.user)
+        self.given_url(reverse("favouriteurl-list"))
+        self.given_query_params({"tag_name": self.favourite_url_1.tags.first().name})
+        self.when_user_gets_json()
+        self.assertResponseSuccess()
+        self.assertEqual(self.response_json["count"], 2)
+        self.assertIn(
+            self.response_json["results"][0]["id"],
+            [self.favourite_url_1.id, self.favourite_url_2.id],
+        )
+        self.assertIn(
+            self.response_json["results"][1]["id"],
+            [self.favourite_url_1.id, self.favourite_url_2.id],
+        )
+
+    def test_list_filter_by_category_and_tag_success(self):
+        self.given_logged_in_user(self.user)
+        self.given_url(reverse("favouriteurl-list"))
+        self.given_query_params(
+            {
+                "category_name": self.favourite_url_1.category.name,
+                "tag_name": self.favourite_url_1.tags.first().name,
+            }
+        )
+        self.when_user_gets_json()
+        self.assertResponseSuccess()
+        self.assertEqual(self.response_json["count"], 1)
+        self.assertEqual(
+            self.response_json["results"][0]["id"], self.favourite_url_1.id
+        )
+
+    def test_list_filter_by_created_after_success(self):
+        self.given_logged_in_user(self.user)
+        self.given_url(reverse("favouriteurl-list"))
+        self.given_query_params({"created_after": timezone.now() - timedelta(days=1)})
+        self.when_user_gets_json()
+        self.assertResponseSuccess()
+        self.assertEqual(self.response_json["count"], 2)
+
+    def test_list_filter_by_created_before_success(self):
+        self.given_logged_in_user(self.user)
+        self.given_url(reverse("favouriteurl-list"))
+        self.given_query_params({"created_before": timezone.now()})
+        self.when_user_gets_json()
+        self.assertResponseSuccess()
+        self.assertEqual(self.response_json["count"], 2)
+
+    def test_list_filter_by_updated_after_success(self):
+        self.given_logged_in_user(self.user)
+        self.given_url(reverse("favouriteurl-list"))
+        self.given_query_params({"updated_after": timezone.now() - timedelta(days=1)})
+        self.when_user_gets_json()
+        self.assertResponseSuccess()
+        self.assertEqual(self.response_json["count"], 2)
+
+    def test_list_filter_by_updated_before_success(self):
+        self.given_logged_in_user(self.user)
+        self.given_url(reverse("favouriteurl-list"))
+        self.given_query_params({"updated_before": timezone.now()})
+        self.when_user_gets_json()
+        self.assertResponseSuccess()
+        self.assertEqual(self.response_json["count"], 2)
+
+    def test_retrieve_given_user_success(self):
+        self.given_logged_in_user(self.user)
+        self.given_url(
+            reverse("favouriteurl-detail", kwargs={"pk": self.favourite_url_1.pk})
+        )
+        self.when_user_gets_json()
+        self.assertResponseSuccess()
+        self.assertIn("id", self.response_json)
+        self.assertIn("user", self.response_json)
+        self.assertIn("url", self.response_json)
+        self.assertIn("created_at", self.response_json)
+        self.assertIn("updated_at", self.response_json)
+        self.assertIn("category", self.response_json)
+        self.assertIn("id", self.response_json["category"])
+        self.assertIn("user", self.response_json["category"])
+        self.assertIn("name", self.response_json["category"])
+        self.assertIn("created_at", self.response_json["category"])
+        self.assertIn("updated_at", self.response_json["category"])
+
+        self.assertIn("tags", self.response_json)
+
+        for tag in self.response_json["tags"]:
+            self.assertIn("id", tag)
+            self.assertIn("user", tag)
+            self.assertIn("name", tag)
+            self.assertIn("created_at", tag)
+            self.assertIn("updated_at", tag)
+
+        self.assertEqual(self.favourite_url_1.user.id, self.response_json["user"])
+        self.assertEqual(self.favourite_url_1.title, self.response_json["title"])
+        self.assertEqual(
+            self.favourite_url_1.created_at.strftime("%Y-%m-%d"),
+            self.response_json["created_at"][0:10],
+        )
+        self.assertEqual(
+            self.favourite_url_1.updated_at.strftime("%Y-%m-%d"),
+            self.response_json["updated_at"][0:10],
+        )
+
+        self.assertEqual(
+            self.favourite_url_1.category.id, self.response_json["category"]["id"]
+        )
+        self.assertEqual(
+            self.favourite_url_1.category.name, self.response_json["category"]["name"]
+        )
+        self.assertEqual(
+            self.favourite_url_1.tags.first().id, self.response_json["tags"][0]["id"]
+        )
+        self.assertEqual(
+            self.favourite_url_1.tags.first().name,
+            self.response_json["tags"][0]["name"],
+        )
+
+    def test_retrieve_non_existing_id(self):
+        self.given_logged_in_user(self.user)
+        self.given_url(reverse("favouriteurl-detail", kwargs={"pk": "123123"}))
+        self.when_user_gets_json()
+        self.assertResponseNotFound()
+
+    def test_retrieve_forbidden_given_not_logged_in(self):
+        self.given_url(
+            reverse("favouriteurl-detail", kwargs={"pk": self.favourite_url_1.pk})
+        )
+        self.when_user_gets_json()
+        self.assertResponseForbidden()
+
+    def test_retrieve_not_found_given_other_user(self):
+        self.given_logged_in_user(self.other_user)
+        self.given_url(
+            reverse("favouriteurl-detail", kwargs={"pk": self.favourite_url_1.pk})
+        )
+        self.when_user_gets_json()
+        self.assertResponseNotFound()
+
