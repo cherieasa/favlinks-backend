@@ -127,6 +127,12 @@ class FavouriteCategoryTestCase(FavouriteManagerBaseTestCase):
             self.response_json["updated_at"][0:10],
         )
 
+    def test_retrieve_non_existing_id(self):
+        self.given_logged_in_user(self.user)
+        self.given_url(reverse("favouritecategory-detail", kwargs={"pk": "123123"}))
+        self.when_user_gets_json()
+        self.assertResponseNotFound()
+
     def test_retrieve_forbidden_given_not_logged_in(self):
         self.given_url(
             reverse("favouritecategory-detail", kwargs={"pk": self.user_category_1.pk})
@@ -210,6 +216,47 @@ class FavouriteCategoryTestCase(FavouriteManagerBaseTestCase):
         self.assertResponseNotFound()
         self.user_category_1.refresh_from_db()
         self.assertNotEqual(self.user_category_1.name, updated_name)
+
+    def test_delete_success(self):
+        self.given_logged_in_user(self.user)
+        self.given_url(
+            reverse("favouritecategory-detail", kwargs={"pk": self.user_category_1.pk})
+        )
+        self.when_user_deletes()
+        self.assertResponseNoContent()
+        self.assertFalse(
+            FavouriteCategory.objects.filter(pk=self.user_category_1.pk).exists()
+        )
+
+    def test_delete_forbidden_given_not_logged_in(self):
+        self.given_url(
+            reverse("favouritecategory-detail", kwargs={"pk": self.user_category_1.pk})
+        )
+        self.when_user_deletes()
+        self.assertResponseForbidden()
+        self.assertTrue(
+            FavouriteCategory.objects.filter(pk=self.user_category_1.pk).exists()
+        )
+
+    def test_delete_not_found_given_non_existent(self):
+        self.given_logged_in_user(self.user)
+        self.given_url(reverse("favouritecategory-detail", kwargs={"pk": "12312312"}))
+        self.when_user_deletes()
+        self.assertResponseNotFound()
+        self.assertTrue(
+            FavouriteCategory.objects.filter(pk=self.user_category_1.pk).exists()
+        )
+
+    def test_delete_not_found_given_other_user(self):
+        self.given_logged_in_user(self.other_user)
+        self.given_url(
+            reverse("favouritecategory-detail", kwargs={"pk": self.user_category_1.pk})
+        )
+        self.when_user_deletes()
+        self.assertResponseNotFound()
+        self.assertTrue(
+            FavouriteCategory.objects.filter(pk=self.user_category_1.pk).exists()
+        )
 
 
 class FavouriteUrlTestCase(FavouriteManagerBaseTestCase):

@@ -75,11 +75,23 @@ class BaseTestCase(APITestCase):
         self.response_json = self.response.json()
         return self.response_json
 
+    def when_user_deletes(self):
+        if self.query_params is not None:
+            r = {
+                "QUERY_STRING": urlencode(self.query_params, doseq=True),
+            }
+            self.response = self.client.delete(self.url, format="json", **r)
+        else:
+            self.response = self.client.delete(self.url, format="json")
+
     def assertResponseSuccess(self):
         self.assertEqual(self.response.status_code, status.HTTP_200_OK)
 
     def assertResponseCreated(self):
         self.assertEqual(self.response.status_code, status.HTTP_201_CREATED)
+
+    def assertResponseNoContent(self):
+        self.assertEqual(self.response.status_code, status.HTTP_204_NO_CONTENT)
 
     def assertResponseBadRequest(self):
         self.assertEqual(self.response.status_code, status.HTTP_400_BAD_REQUEST)
