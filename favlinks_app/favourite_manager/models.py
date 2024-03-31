@@ -105,12 +105,10 @@ class FavouriteUrl(models.Model):
 
     @property
     def is_valid(self):
-        valid_url, created = ValidUrl.objects.get_or_create(url=self.url)
-        if created:
-            valid_url.validate_url_and_get_title()
-            valid_url.refresh_from_db()
-
-        return valid_url.is_valid
+        valid_url = ValidUrl.objects.filter(url=self.url)
+        if valid_url.exists():
+            return valid_url.first().is_valid
+        return False
 
     class Meta:
         verbose_name = _("Favourite Url")

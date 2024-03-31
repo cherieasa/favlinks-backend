@@ -13,6 +13,10 @@ def setup_periodic_tasks(sender, **kwargs):
         crontab(minute=0, hour="*"),  # Every hour
         validate_urls_and_update_titles.s(),
     )
+    sender.add_periodic_task(
+        crontab(minute=0, hour="0"),  # Every day
+        clean_up_invalid_validurl_instances.s(),
+    )
 
 
 @app.task(bind=True)
@@ -21,3 +25,10 @@ def validate_urls_and_update_titles():
 
     for valid_url_obj in ValidUrl.objects.all():
         valid_url_obj.validate_url_and_get_title()
+
+
+@app.task(bind=True)
+def clean_up_invalid_validurl_instances():
+    from favourite_manager.models import ValidUrl
+
+    ValidUrl.objects.filter(is_valid=False).delete()
