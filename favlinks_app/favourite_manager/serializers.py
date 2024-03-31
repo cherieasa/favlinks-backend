@@ -1,5 +1,17 @@
 from rest_framework import serializers
-from favourite_manager.models import FavouriteUrl, FavouriteCategory, FavouriteTag
+from favourite_manager.models import (
+    FavouriteUrl,
+    FavouriteCategory,
+    FavouriteTag,
+    ValidUrl,
+)
+
+
+class ValidUrlSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ValidUrl
+        fields = ["url", "title", "is_valid", "updated_at"]
+        read_only_fields = ["title", "is_valid", "updated_at"]
 
 
 class FavouriteCategorySerializer(serializers.ModelSerializer):
