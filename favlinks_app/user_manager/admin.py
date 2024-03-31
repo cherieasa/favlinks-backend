@@ -1,17 +1,17 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from django.utils.translation import gettext, gettext_lazy as _
+from django.utils.translation import gettext_lazy as _
 
 from user_manager.models import User
 
 
 class CustomUserAdmin(UserAdmin):
-    readonly_fields = ("tags", "categories")
+    readonly_fields = ("tags", "categories", "favourite_urls_count")
     fieldsets = UserAdmin.fieldsets + (
         (
             _("Favourites"),
             {
-                "fields": ("tags", "categories"),
+                "fields": ("tags", "categories", "favourite_urls_count"),
             },
         ),
     )
