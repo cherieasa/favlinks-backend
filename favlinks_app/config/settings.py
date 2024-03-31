@@ -38,7 +38,9 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "rest_framework",
+    "django_filters",
     "user_manager",
+    "favourite_manager",
 ]
 
 MIDDLEWARE = [
@@ -125,5 +127,6 @@ STATIC_URL = "static/"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Super Admin Credentials
+AUTH_USER_MODEL = "user_manager.User"
 SUPER_ADMIN_USERNAME = "admin"
 SUPER_ADMIN_PASS = "Test1234++"

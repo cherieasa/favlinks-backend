@@ -18,9 +18,21 @@ from django.contrib import admin
 from rest_framework.routers import DefaultRouter
 from django.urls import path, include
 
+from favourite_manager.views import (
+    FavouriteCategoryViewSet,
+    FavouriteTagViewSet,
+    FavouriteUrlViewSet,
+)
+
 router = DefaultRouter()
+
+router.register(
+    r"favouritecategory", FavouriteCategoryViewSet, basename="favouritecategory"
+)
+router.register(r"favouritetag", FavouriteTagViewSet, basename="favouritetag")
+router.register(r"favouriteurl", FavouriteUrlViewSet, basename="favouriteurl")
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    path("", include(router.urls)),
+    path("api/", include(router.urls)),
 ]
