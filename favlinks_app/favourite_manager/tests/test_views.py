@@ -21,6 +21,9 @@ class FavouriteManagerBaseTestCase(BaseTestCase):
         self.other_category = self.given_a_favourite_category(user=self.other_user)
 
 
+# TODO: ValidUrlTestCase
+
+
 class FavouriteTagTestCase(FavouriteManagerBaseTestCase):
 
     def setUp(self):

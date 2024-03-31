@@ -4,6 +4,7 @@ from django.utils.translation import gettext_lazy as _
 from django_filters import rest_framework as filters
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, status, viewsets
+from rest_framework.decorators import action
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -16,6 +17,7 @@ from favourite_manager.models import (
     ValidUrl,
 )
 from favourite_manager.serializers import (
+    ValidUrlSerializer,
     FavouriteCategorySerializer,
     FavouriteTagSerializer,
     FavouriteUrlSerializer,
@@ -24,7 +26,8 @@ from favourite_manager.serializers import (
 
 
 class ValidUrlViewSet(viewsets.GenericViewSet):
-    def create(self, request):
+    @action(methods=["POST"], detail=False, serializer_class=ValidUrlSerializer)
+    def validate(self, request):
         url = request.data.get("url", None)
         title = None
         if not url:
@@ -41,13 +44,12 @@ class ValidUrlViewSet(viewsets.GenericViewSet):
             else:
                 is_valid = False
 
-            ValidUrl.objects.get_or_create(
+            instance, _ = ValidUrl.objects.get_or_create(
                 url=url, defaults={"is_valid": is_valid, "title": title}
             )
-            return Response(
-                {"is_valid": is_valid, "title": title},
-                status=status.HTTP_200_OK,
-            )
+            serializer = self.get_serializer(instance)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
         except ValidUrl.DoesNotExist:
             return Response(
                 {"error": "URL not found"}, status=status.HTTP_404_NOT_FOUND

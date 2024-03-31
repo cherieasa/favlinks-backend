@@ -49,7 +49,7 @@ class FavouriteTag(models.Model):
 
 class ValidUrl(models.Model):
     url = models.URLField(unique=True)
-    title = models.CharField(_("Title"), max_length=255)
+    title = models.CharField(_("Title"), max_length=255, blank=True, null=True)
     is_valid = models.BooleanField(default=False)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -74,7 +74,7 @@ class ValidUrl(models.Model):
 class FavouriteUrl(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     url = models.URLField()
-    title = models.CharField(_("Title"), max_length=255)
+    title = models.CharField(_("Title"), max_length=255, blank=True, null=True)
     category = models.ForeignKey(
         FavouriteCategory, blank=True, null=True, on_delete=models.SET_NULL
     )

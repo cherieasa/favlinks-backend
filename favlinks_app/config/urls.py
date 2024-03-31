@@ -21,6 +21,7 @@ from drf_yasg import openapi
 from drf_yasg.views import get_schema_view
 
 from favourite_manager.views import (
+    ValidUrlViewSet,
     FavouriteCategoryViewSet,
     FavouriteTagViewSet,
     FavouriteUrlViewSet,
@@ -36,6 +37,7 @@ schema_view = get_schema_view(
 
 router = DefaultRouter()
 
+router.register(r"validurl", ValidUrlViewSet, basename="validurl")
 router.register(
     r"favouritecategory", FavouriteCategoryViewSet, basename="favouritecategory"
 )
