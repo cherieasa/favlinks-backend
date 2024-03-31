@@ -19,7 +19,7 @@ def setup_periodic_tasks(sender, **kwargs):
     )
 
 
-@app.task(bind=True)
+@app.task()
 def validate_urls_and_update_titles():
     from favourite_manager.models import ValidUrl
 
@@ -27,7 +27,7 @@ def validate_urls_and_update_titles():
         valid_url_obj.validate_url_and_get_title()
 
 
-@app.task(bind=True)
+@app.task()
 def clean_up_invalid_validurl_instances():
     from favourite_manager.models import ValidUrl
 
