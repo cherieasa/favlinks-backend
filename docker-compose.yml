@@ -1,0 +1,54 @@
+version: '3'
+services:
+  db:
+    image: postgres:14
+    environment:
+      - POSTGRES_PASSWORD=password
+      - PGDATA=/tmp
+    ports:
+      - "5432:5432"
+    container_name: favlinksserver_db
+  web:
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings
+      - PYTHONUNBUFFERED=1
+    build: 
+      context: ./favlinks_app
+    command: [ "./start.sh" ]
+    volumes:
+      - ./favlinks_app:/usr/src/app
+    ports:
+      - "8000:8000"
+    container_name: favlinksserver_web
+    depends_on:
+      - db
+
+  redis:
+    image: redis:6.2.6 
+
+  worker-beat:
+  
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings
+      - PYTHONUNBUFFERED=1
+    build: 
+      context: ./favlinks_app
+    volumes:
+      - ./favlinks_app:/usr/src/app
+    command: "celery -A favourite_manager beat --scheduler django_celery_beat.schedulers:DatabaseScheduler --loglevel=info"
+    container_name: favlinks_worker_beat
+    depends_on:
+      - redis
+      - web
+  worker:
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings
+      - PYTHONUNBUFFERED=1
+    build: 
+      context: ./favlinks_app
+    volumes:
+      - ./favlinks_app:/usr/src/app
+    command: "celery -A favourite_manager worker --loglevel=info"
+    container_name: favlinks_worker
+    depends_on:
+      - worker-beat
