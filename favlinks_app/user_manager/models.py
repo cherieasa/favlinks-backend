@@ -17,3 +17,9 @@ class User(AbstractUser):
         from favourite_manager.models import FavouriteCategory
 
         return FavouriteCategory.objects.filter(user=self)
+
+    @property
+    def favourite_urls_count(self):
+        from favourite_manager.models import FavouriteUrl
+
+        return FavouriteUrl.objects.filter(user=self).count()
