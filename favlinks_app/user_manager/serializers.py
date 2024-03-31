@@ -26,7 +26,7 @@ class RegisterSerializer(serializers.ModelSerializer):
     @staticmethod
     def validate_username(value):
         if User.objects.filter(username__iexact=value).exists():
-            raise serializers.ValidationError("This usernamme is already in use.")
+            raise serializers.ValidationError("This username is already in use.")
         return value.lower()
 
     def validate(self, data):
@@ -50,3 +50,37 @@ class RegisterSerializer(serializers.ModelSerializer):
         )
         return instance
 
+
+class LoginSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(required=True, write_only=True)
+    password = serializers.CharField(write_only=True, style={"input_type": "password"})
+
+    class Meta:
+        model = User
+        fields = (
+            "id",
+            "username",
+            "email",
+            "password",
+        )
+        read_only_fields = [
+            "id",
+        ]
+
+    def validate(self, data):
+        username = data.get("username")
+        password = data.get("password")
+
+        if username and password:
+            if not User.objects.filter(username=username).exists():
+                raise serializers.ValidationError("Incorrect Password")
+        else:
+            raise serializers.ValidationError("Provide both username and password")
+
+        return data
+
+    def authenticate_details(self):
+        return authenticate(
+            username=self.validated_data["username"],
+            password=self.validated_data["password"],
+        )

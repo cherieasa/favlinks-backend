@@ -1,4 +1,5 @@
 from config.helpers import BaseTestCase
+from rest_framework.authtoken.models import Token
 from rest_framework.reverse import reverse
 
 from user_manager.models import User
@@ -9,10 +10,21 @@ class AuthTestCase(BaseTestCase):
         super().setUp()
         self.user = self.given_a_new_user(username="test")
 
-    def assertInRegisterResponse(self, response):
+    def assertUserInRegisterResponse(self, response):
         self.assertIn("id", response)
         self.assertIn("username", response)
         self.assertIn("email", response)
+
+    def assertUserInLoginResponse(self, response):
+        self.assertIn("id", response)
+        self.assertIn("username", response)
+        self.assertIn("email", response)
+
+    def assertUserEqualsLoginResponse(self, user, response):
+        self.assertEqual(user.id, response["id"])
+        self.assertEqual(user.username, response["username"])
+        self.assertEqual(user.email, response["email"])
+        self.assertEqual(Token.objects.get(user=user).key, response["token"])
 
     def get_user_count(self):
         return User.objects.count()
@@ -41,7 +53,7 @@ class AuthTestCase(BaseTestCase):
         )
         self.when_user_posts_and_gets_json(data=data)
         self.assertResponseCreated()
-        self.assertInRegisterResponse(self.response_json)
+        self.assertUserInRegisterResponse(self.response_json)
         self.assertTrue(User.objects.filter(username=new_username).exists())
         self.assertEqual(initial_user_count + 1, self.get_user_count())
 
@@ -108,3 +120,34 @@ class AuthTestCase(BaseTestCase):
         self.when_user_posts_and_gets_json(data=data)
         self.assertResponseBadRequest()
         self.assertEqual(initial_user_count, self.get_user_count())
+
+    def test_login_success_with_correct_details(self):
+        self.given_url(reverse("auth-login"))
+        data = self.given_login_payload(
+            username=self.user.username,
+            password="Test1234++",
+        )
+        self.when_user_posts_and_gets_json(data=data)
+        self.assertResponseSuccess()
+        self.assertUserInLoginResponse(self.response_json)
+        self.assertUserEqualsLoginResponse(self.user, self.response_json)
+
+    def test_login_fail_with_incorrect_password(self):
+        self.given_url(reverse("auth-login"))
+        data = self.given_login_payload(
+            username=self.user.username,
+            password="wrongpassword",
+        )
+        self.when_user_posts_and_gets_json(data=data)
+        self.assertResponseNotAuthorized()
+        self.assertFalse(Token.objects.filter(user=self.user).exists())
+
+    def test_login_fail_with_incorrect_username(self):
+        self.given_url(reverse("auth-login"))
+        data = self.given_login_payload(
+            username=self.user.username + "1",
+            password="Test1234++",
+        )
+        self.when_user_posts_and_gets_json(data=data)
+        self.assertResponseBadRequest()
+        self.assertFalse(Token.objects.filter(user=self.user).exists())
