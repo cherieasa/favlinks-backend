@@ -42,3 +42,9 @@ python manage.py test
 
 ### Head to localhost:8000/swagger
 - Test and view API viewsets
+
+## 4. Run FavouriteUrl General (no login) CLI Command
+```bash
+# Search by URL and Title
+python manage.py search_favourite_url --url=url_to_search --title=title_to_search --category=category_to_search --tag=tag_to_search
+```
