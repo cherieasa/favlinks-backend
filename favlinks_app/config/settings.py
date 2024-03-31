@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework",
     "django_filters",
+    "django-celery-beat",
     "user_manager",
     "favourite_manager",
 ]
@@ -130,3 +131,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 AUTH_USER_MODEL = "user_manager.User"
 SUPER_ADMIN_USERNAME = "admin"
 SUPER_ADMIN_PASS = "Test1234++"
+
+# Celery Config
+CELERY_BROKER_URL = "redis://redis:6379/0"
+CELERY_RESULT_BACKEND = "redis://redis:6379/0"
