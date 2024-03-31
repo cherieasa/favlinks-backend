@@ -5,9 +5,7 @@ from .models import FavouriteCategory, FavouriteTag, FavouriteUrl, ValidUrl
 class ValidUrlAdminView(admin.ModelAdmin):
     list_display = ["url", "title", "is_valid", "updated_at"]
     search_fields = ["url", "title"]
-    readonly_fields = [
-        "updated_at",
-    ]
+    readonly_fields = ["url", "title", "updated_at", "is_valid"]
     list_filter = ["is_valid", "updated_at"]
 
 
