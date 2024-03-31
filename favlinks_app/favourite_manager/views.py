@@ -44,11 +44,15 @@ class ValidUrlViewSet(viewsets.GenericViewSet):
             else:
                 is_valid = False
 
-            instance, _ = ValidUrl.objects.get_or_create(
+            instance, created = ValidUrl.objects.get_or_create(
                 url=url, defaults={"is_valid": is_valid, "title": title}
             )
+            if created:
+                status_code = status.HTTP_201_CREATED
+            else:
+                status_code = status.HTTP_200_OK
             serializer = self.get_serializer(instance)
-            return Response(serializer.data, status=status.HTTP_200_OK)
+            return Response(serializer.data, status=status_code)
 
         except ValidUrl.DoesNotExist:
             return Response(
