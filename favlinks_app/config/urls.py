@@ -26,6 +26,7 @@ from favourite_manager.views import (
     FavouriteTagViewSet,
     FavouriteUrlViewSet,
 )
+from user_manager.views import AuthViewSet
 
 schema_view = get_schema_view(
     openapi.Info(
@@ -37,12 +38,13 @@ schema_view = get_schema_view(
 
 router = DefaultRouter()
 
-router.register(r"validurl", ValidUrlViewSet, basename="validurl")
 router.register(
     r"favouritecategory", FavouriteCategoryViewSet, basename="favouritecategory"
 )
 router.register(r"favouritetag", FavouriteTagViewSet, basename="favouritetag")
 router.register(r"favouriteurl", FavouriteUrlViewSet, basename="favouriteurl")
+router.register(r"auth", AuthViewSet, basename="auth")
+router.register(r"validurl", ValidUrlViewSet, basename="validurl")
 
 urlpatterns = [
     path("admin/", admin.site.urls),
