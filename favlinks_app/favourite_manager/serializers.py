@@ -72,10 +72,11 @@ class FavouriteUrlSerializer(serializers.ModelSerializer):
             "title",
             "tags",
             "category",
+            "is_valid",
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "user", "created_at", "updated_at"]
+        read_only_fields = ["id", "user", "created_at", "updated_at", "is_valid"]
 
     def create(self, validated_data):
         return FavouriteUrl.objects.create(**validated_data)
@@ -86,7 +87,7 @@ class FavouriteUrlSerializer(serializers.ModelSerializer):
         return instance
 
 
-class FavouriteUrlCreateSerializer(serializers.ModelSerializer):
+class FavouriteUrlCreateUpdateSerializer(serializers.ModelSerializer):
     category = serializers.PrimaryKeyRelatedField(
         queryset=FavouriteCategory.objects.all(), required=False
     )
@@ -128,3 +129,31 @@ class FavouriteUrlCreateSerializer(serializers.ModelSerializer):
             favourite_url.tags.set(tags_queryset)
 
         return favourite_url
+
+    def update(self, instance, validated_data):
+        user = self.context["user"]
+        tags = validated_data.get("tags", None)
+        category = validated_data.get("category", None)
+
+        if category is None:
+            instance.category = None
+        else:
+            category = FavouriteCategory.objects.filter(
+                id=category.id, user=user
+            ).first()
+            if category:
+                instance.category = category
+                instance.save()
+
+        if tags is None:
+            instance.tags.clear()
+        else:
+            tag_ids = [tag.id for tag in tags]
+            tags_queryset = FavouriteTag.objects.filter(id__in=tag_ids, user=user)
+            instance.tags.set(tags_queryset)
+
+        instance.url = validated_data.get("url", instance.url)
+        instance.title = validated_data.get("title", instance.title)
+        instance.save()
+
+        return instance

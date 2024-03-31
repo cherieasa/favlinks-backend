@@ -409,6 +409,7 @@ class FavouriteUrlTestCase(FavouriteManagerBaseTestCase):
             self.assertIn("id", favurl)
             self.assertIn("user", favurl)
             self.assertIn("title", favurl)
+            self.assertIn("is_valid", favurl)
             self.assertIn("created_at", favurl)
             self.assertIn("updated_at", favurl)
 
@@ -418,6 +419,7 @@ class FavouriteUrlTestCase(FavouriteManagerBaseTestCase):
                 self.assertIn("name", favurl["category"])
                 self.assertIn("created_at", favurl["category"])
                 self.assertIn("updated_at", favurl["category"])
+                self.assertIn("associated_urls_count", favurl["category"])
 
             if "tags" in favurl and favurl["tags"]:
                 for tag in favurl["tags"]:
@@ -426,6 +428,7 @@ class FavouriteUrlTestCase(FavouriteManagerBaseTestCase):
                     self.assertIn("name", tag)
                     self.assertIn("created_at", tag)
                     self.assertIn("updated_at", tag)
+                    self.assertIn("associated_urls_count", tag)
 
     def assertFavUrlEqualsResponse(self, user, response):
         for favurl in response:
@@ -433,6 +436,8 @@ class FavouriteUrlTestCase(FavouriteManagerBaseTestCase):
             self.assertEqual(user.id, favurl["user"])
             self.assertEqual(favurl_obj.user.id, favurl["user"])
             self.assertEqual(favurl_obj.title, favurl["title"])
+            self.assertEqual(favurl_obj.is_valid, favurl["is_valid"])
+
             self.assertEqual(
                 favurl_obj.created_at.strftime("%Y-%m-%d"),
                 favurl["created_at"][0:10],
@@ -448,6 +453,10 @@ class FavouriteUrlTestCase(FavouriteManagerBaseTestCase):
                 )
                 self.assertEqual(category_obj.name, favurl["category"]["name"])
                 self.assertEqual(
+                    category_obj.associated_urls_count,
+                    favurl["category"]["associated_urls_count"],
+                )
+                self.assertEqual(
                     category_obj.created_at.strftime("%Y-%m-%d"),
                     favurl["category"]["created_at"][0:10],
                 )
@@ -459,6 +468,10 @@ class FavouriteUrlTestCase(FavouriteManagerBaseTestCase):
             for tag in favurl["tags"]:
                 tag_obj = FavouriteTag.objects.get(id=tag["id"])
                 self.assertEqual(tag_obj.name, tag["name"])
+                self.assertEqual(
+                    tag_obj.associated_urls_count,
+                    tag["associated_urls_count"],
+                )
                 self.assertEqual(
                     tag_obj.created_at.strftime("%Y-%m-%d"), tag["created_at"][0:10]
                 )
@@ -769,3 +782,141 @@ class FavouriteUrlTestCase(FavouriteManagerBaseTestCase):
         self.when_user_posts_and_gets_json(data={})
         self.assertResponseBadRequest()
         self.assertEqual(initial_count, self.get_favourite_url_count())
+
+    def test_update_favourite_url_and_title_success(self):
+        updated_url = "https://google.com/"
+        updated_title = "new title!"
+        self.given_logged_in_user(self.user)
+        self.given_url(
+            reverse("favouriteurl-detail", kwargs={"pk": self.favourite_url_1.pk})
+        )
+        self.when_user_puts_and_gets_json(
+            data={"url": updated_url, "title": updated_title}
+        )
+        self.assertResponseSuccess()
+        self.favourite_url_1.refresh_from_db()
+        self.assertEqual(self.favourite_url_1.url, updated_url)
+        self.assertEqual(self.favourite_url_1.title, updated_title)
+        self.assertEqual(self.favourite_url_1.category, None)
+        self.assertEqual(self.favourite_url_1.tags.count(), 0)
+
+    def test_update_favourite_category_and_tags_success(self):
+        updated_url = "https://google.com/"
+        updated_title = "new title!"
+        self.new_cat = self.given_a_favourite_category(self.user, name="new category")
+        self.new_tag = self.given_a_favourite_tag(self.user, name="new tag")
+        self.given_logged_in_user(self.user)
+        self.given_url(
+            reverse("favouriteurl-detail", kwargs={"pk": self.favourite_url_1.pk})
+        )
+        self.when_user_puts_and_gets_json(
+            data={
+                "url": updated_url,
+                "title": updated_title,
+                "category": self.new_cat.id,
+                "tags": [self.new_tag.id, self.tag.id],
+            }
+        )
+        self.assertResponseSuccess()
+        self.favourite_url_1.refresh_from_db()
+        self.assertEqual(self.favourite_url_1.category, self.new_cat)
+        for tag in self.favourite_url_1.tags.all():
+            self.assertIn(tag.id, [self.new_tag.id, self.tag.id])
+
+    def test_update_other_favourite_category_and_other_tags_ignore(self):
+        self.new_url = "https://newurl.com"
+        self.new_title = "this is a new title"
+        self.new_cat = self.given_a_favourite_category(
+            self.other_user, name="new category"
+        )
+        self.new_tag1 = self.given_a_favourite_tag(self.other_user, name="new tag1")
+        self.new_tag2 = self.given_a_favourite_tag(self.other_user, name="new tag2")
+        self.given_logged_in_user(self.user)
+        self.given_url(
+            reverse("favouriteurl-detail", kwargs={"pk": self.favourite_url_1.pk})
+        )
+        self.when_user_puts_and_gets_json(
+            data={
+                "url": self.new_url,
+                "title": self.new_title,
+                "category": self.new_cat.id,
+                "tags": [self.new_tag1.id, self.new_tag2.id],
+            }
+        )
+        self.assertResponseSuccess()
+        self.favourite_url_1.refresh_from_db()
+        self.assertEqual(self.favourite_url_1.url, self.new_url)
+        self.assertEqual(self.favourite_url_1.title, self.new_title)
+        self.assertNotEqual(self.favourite_url_1.category, self.new_cat)
+        for tag in self.favourite_url_1.tags.all():
+            self.assertNotIn(tag.id, [self.new_tag1.id, self.new_tag2.id])
+
+    def test_update_with_empty_data_bad_request(self):
+        self.given_logged_in_user(self.user)
+        self.given_url(
+            reverse("favouriteurl-detail", kwargs={"pk": self.favourite_url_1.pk})
+        )
+        self.when_user_puts_and_gets_json(data={})
+        self.assertResponseBadRequest()
+
+    def test_update_forbidden_given_not_logged_in(self):
+        updated_title = "updated"
+        self.given_url(
+            reverse("favouriteurl-detail", kwargs={"pk": self.favourite_url_1.pk})
+        )
+        self.when_user_puts_and_gets_json(data={"title": updated_title})
+        self.assertResponseForbidden()
+        self.favourite_url_1.refresh_from_db()
+        self.assertNotEqual(self.favourite_url_1.title, updated_title)
+
+    def test_update_not_found_given_other_user(self):
+        updated_title = "updated"
+        self.given_logged_in_user(self.other_user)
+        self.given_url(
+            reverse("favouriteurl-detail", kwargs={"pk": self.favourite_url_1.pk})
+        )
+        self.when_user_puts_and_gets_json(data={"title": updated_title})
+        self.assertResponseNotFound()
+        self.favourite_url_1.refresh_from_db()
+        self.assertNotEqual(self.favourite_url_1.title, updated_title)
+
+    def test_delete_success(self):
+        self.given_logged_in_user(self.user)
+        self.given_url(
+            reverse("favouriteurl-detail", kwargs={"pk": self.favourite_url_1.pk})
+        )
+        self.when_user_deletes()
+        self.assertResponseNoContent()
+        self.assertFalse(
+            FavouriteUrl.objects.filter(pk=self.favourite_url_1.pk).exists()
+        )
+
+    def test_delete_forbidden_given_not_logged_in(self):
+        self.given_url(
+            reverse("favouriteurl-detail", kwargs={"pk": self.favourite_url_1.pk})
+        )
+        self.when_user_deletes()
+        self.assertResponseForbidden()
+        self.assertTrue(
+            FavouriteUrl.objects.filter(pk=self.favourite_url_1.pk).exists()
+        )
+
+    def test_delete_not_found_given_non_existent(self):
+        self.given_logged_in_user(self.user)
+        self.given_url(reverse("favouriteurl-detail", kwargs={"pk": "12312312"}))
+        self.when_user_deletes()
+        self.assertResponseNotFound()
+        self.assertTrue(
+            FavouriteUrl.objects.filter(pk=self.favourite_url_1.pk).exists()
+        )
+
+    def test_delete_not_found_given_other_user(self):
+        self.given_logged_in_user(self.other_user)
+        self.given_url(
+            reverse("favouriteurl-detail", kwargs={"pk": self.favourite_url_1.pk})
+        )
+        self.when_user_deletes()
+        self.assertResponseNotFound()
+        self.assertTrue(
+            FavouriteUrl.objects.filter(pk=self.favourite_url_1.pk).exists()
+        )
